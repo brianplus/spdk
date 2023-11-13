@@ -1,0 +1,11 @@
+{
+	global:
+
+	# Public functions in fuse_dispatcher.h
+	spdk_fuse_dispatcher_create;
+	spdk_fuse_dispatcher_submit_request;
+	spdk_fuse_dispatcher_delete;
+
+	# Everything else
+	local: *;
+};

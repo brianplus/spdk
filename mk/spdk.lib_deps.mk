@@ -95,6 +95,9 @@ BDEV_DEPS_THREAD = $(BDEV_DEPS) thread
 
 FSDEV_DEPS = log util fsdev
 
+# lib/fsdev_fuse
+DEPDIRS-fuse_dispatcher := $(FSDEV_DEPS)
+
 # module/blob
 DEPDIRS-blob_bdev := log thread bdev
 
