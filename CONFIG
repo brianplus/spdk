@@ -222,3 +222,8 @@ CONFIG_AVAHI=n
 # Build with libxlio suport.
 CONFIG_XLIO=n
 CONFIG_XLIO_DIR=
+# Build with aio fsdev
+CONFIG_AIO_FSDEV=y
+
+# Does the libc contain the copy_file_range
+CONFIG_COPY_FILE_RANGE=n

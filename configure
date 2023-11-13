@@ -130,6 +130,8 @@ function usage() {
 	echo " --with-xlio[=DIR]         Build xlio socket layer."
 	echo " --without-xlio            Path to custom libxlio installation directory may be specified."
 	echo "                           If path is given, it should contain 'include/mellanox/xlio_extra.h' file."
+	echo " --with-aio-fsdev          Build aio FSDEV component."
+	echo " --without-aio-fsdev       No path required."
 	echo ""
 	echo "Environment variables:"
 	echo ""
@@ -681,6 +683,12 @@ for i in "$@"; do
 		--without-xlio)
 			CONFIG[XLIO_DIR]=
 			CONFIG[XLIO]=n
+			;;
+		--with-aio-fsdev)
+			CONFIG[AIO_FSDEV]=y
+			;;
+		--without-aio-fsdev)
+			CONFIG[AIO_FSDEV]=n
 			;;
 		--)
 			break
@@ -1287,6 +1295,17 @@ if [[ "${CONFIG[AVAHI]}" = "y" ]]; then
 		exit 1
 	fi
 fi
+
+if [[ "${CONFIG[AIO_FSDEV]}" = "y" ]]; then
+	if echo -e '#define _GNU_SOURCE\n#include <unistd.h>\n' \
+		'int main(void) { return copy_file_range(0, 0, 0, 0, 0, 0); }\n' \
+		| "${BUILD_CMD[@]}" - 2> /dev/null; then
+		CONFIG[COPY_FILE_RANGE]=y
+	else
+		CONFIG[COPY_FILE_RANGE]=n
+	fi
+fi
+
 
 # For ARM Neoverse-N1 platform, debug build needs gcc version newer than 8.4
 if [[ "${CONFIG[DEBUG]}" = "y" && $arch = aarch64* && "$CC_TYPE" = "gcc" ]]; then
