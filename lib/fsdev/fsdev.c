@@ -777,6 +777,21 @@ spdk_fsdev_get_instance_opts(const struct spdk_fsdev *fsdev, struct spdk_fsdev_i
 	return 0;
 }
 
+int
+spdk_fsdev_get_memory_domains(struct spdk_fsdev *fsdev, struct spdk_memory_domain **domains,
+			      int array_size)
+{
+	if (!fsdev) {
+		return -EINVAL;
+	}
+
+	if (fsdev->fn_table->get_memory_domains) {
+		return fsdev->fn_table->get_memory_domains(fsdev->ctxt, domains, array_size);
+	}
+
+	return 0;
+}
+
 const char *
 spdk_fsdev_get_module_name(const struct spdk_fsdev *fsdev)
 {

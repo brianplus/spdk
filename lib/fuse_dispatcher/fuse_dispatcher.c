@@ -1215,7 +1215,7 @@ do_read(struct fuse_io *fuse_io)
 	err = spdk_fsdev_op_read(fuse_io_desc(fuse_io), fuse_io->ch, fuse_io->hdr.unique,
 				 fuse_io->hdr.nodeid, fsdev_io_d2h_u64(fuse_io, arg->fh),
 				 fsdev_io_d2h_u32(fuse_io, arg->size), fsdev_io_d2h_u64(fuse_io, arg->offset),
-				 flags, fuse_io->out_iov + 1, fuse_io->out_iovcnt - 1,
+				 flags, fuse_io->out_iov + 1, fuse_io->out_iovcnt - 1, NULL,
 				 do_read_cpl_clb, fuse_io);
 	if (err) {
 		fuse_dispatcher_io_complete_err(fuse_io, err);
@@ -1264,7 +1264,7 @@ do_write(struct fuse_io *fuse_io)
 				  fuse_io->hdr.nodeid, fsdev_io_d2h_u64(fuse_io, arg->fh),
 				  fsdev_io_d2h_u32(fuse_io, arg->size), fsdev_io_d2h_u64(fuse_io, arg->offset),
 				  flags, fuse_io->in_iov + fuse_io->in_offs.iov_offs, fuse_io->in_iovcnt - fuse_io->in_offs.iov_offs,
-				  do_write_cpl_clb, fuse_io);
+				  NULL, do_write_cpl_clb, fuse_io);
 	if (err) {
 		fuse_dispatcher_io_complete_err(fuse_io, err);
 	}

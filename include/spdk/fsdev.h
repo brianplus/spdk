@@ -12,6 +12,7 @@
 #include "spdk/stdinc.h"
 #include "spdk/json.h"
 #include "spdk/assert.h"
+#include "spdk/dma.h"
 
 #include <sys/statvfs.h>
 
@@ -99,6 +100,23 @@ struct spdk_fsdev_instance_opts {
 
 } __attribute__((packed));
 SPDK_STATIC_ASSERT(sizeof(struct spdk_fsdev_instance_opts) == 9, "Incorrect size");
+
+/**
+ * Structure with optional File Operation parameters
+ * The content of this structure must be valid until the File Operation is completed
+ */
+struct spdk_fsdev_ext_op_opts {
+	/** Size of this structure in bytes */
+	size_t size;
+	/** Memory domain which describes payload in this File Operation. fsdev must support DMA device type that
+	 * can access this memory domain, refer to \ref spdk_fsdev_get_memory_domains and \ref spdk_memory_domain_get_dma_device_type
+	 * If set, that means that data buffers can't be accessed directly and the memory domain must
+	 * be used to fetch data to local buffers or to translate data to another memory domain */
+	struct spdk_memory_domain *memory_domain;
+	/** Context to be passed to memory domain operations */
+	void *memory_domain_ctx;
+} __attribute__((packed));
+SPDK_STATIC_ASSERT(sizeof(struct spdk_fsdev_ext_op_opts) == 24, "Incorrect size");
 
 /**
  * \brief Handle to an opened SPDK filesystem device.
@@ -253,6 +271,26 @@ int spdk_fsdev_set_instance_opts(struct spdk_fsdev *fsdev,
  */
 int spdk_fsdev_get_instance_opts(const struct spdk_fsdev *fsdev,
 				 struct spdk_fsdev_instance_opts *opts, size_t opts_size);
+
+/**
+ * Get SPDK memory domains used by the given fsdev. If fsdev reports that it uses memory domains
+ * that means that it can work with data buffers located in those memory domains.
+ *
+ * The user can call this function with \b domains set to NULL and \b array_size set to 0 to get the
+ * number of memory domains used by fsdev
+ *
+ * \param fsdev filesystem device
+ * \param domains pointer to an array of memory domains to be filled by this function. The user should allocate big enough
+ * array to keep all memory domains used by fsdev and all underlying fsdevs
+ * \param array_size size of \b domains array
+ * \return the number of entries in \b domains array or negated errno. If returned value is bigger than \b array_size passed by the user
+ * then the user should increase the size of \b domains array and call this function again. There is no guarantees that
+ * the content of \b domains array is valid in that case.
+ *         -EINVAL if input parameters were invalid
+ */
+int spdk_fsdev_get_memory_domains(struct spdk_fsdev *fsdev, struct spdk_memory_domain **domains,
+				  int array_size);
+
 
 typedef uint64_t spdk_ino_t;
 
@@ -741,6 +779,9 @@ typedef void (spdk_fsdev_op_read_cpl_cb)(void *ctx, struct spdk_io_channel *ch, 
  * \param flags Operation flags.
  * \param iov Array of iovec to be used for the data.
  * \param iovcnt Size of the @iov array.
+ * \param opts Optional structure with extended File Operation options. If set, this structure must be
+ * valid until the operation is completed. `size` member of this structure is used for ABI compatibility and
+ * must be set to sizeof(struct spdk_fsdev_ext_op_opts).
  * \param clb Completion callback.
  * \param ctx Context to be passed to the completion callback.
  *
@@ -751,7 +792,7 @@ typedef void (spdk_fsdev_op_read_cpl_cb)(void *ctx, struct spdk_io_channel *ch, 
  */
 int spdk_fsdev_op_read(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, uint64_t unique,
 		       spdk_ino_t ino, uint64_t fh, size_t size, uint64_t offs, uint32_t flags,
-		       struct iovec *iov, uint32_t iovcnt,
+		       struct iovec *iov, uint32_t iovcnt, struct spdk_fsdev_ext_op_opts *opts,
 		       spdk_fsdev_op_read_cpl_cb clb, void *ctx);
 
 /**
@@ -778,6 +819,9 @@ typedef void (spdk_fsdev_op_write_cpl_cb)(void *ctx, struct spdk_io_channel *ch,
  * \param flags Operation flags.
  * \param iov Array of iovec to where the data is stored.
  * \param iovcnt Size of the @iov array.
+ * \param opts Optional structure with extended File Operation options. If set, this structure must be
+ * valid until the operation is completed. `size` member of this structure is used for ABI compatibility and
+ * must be set to sizeof(struct spdk_fsdev_ext_op_opts).
  * \param clb Completion callback.
  * \param ctx Context to be passed to the completion callback.
  *
@@ -788,7 +832,8 @@ typedef void (spdk_fsdev_op_write_cpl_cb)(void *ctx, struct spdk_io_channel *ch,
  */
 int spdk_fsdev_op_write(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, uint64_t unique,
 			spdk_ino_t ino, uint64_t fh, size_t size, uint64_t offs, uint64_t flags,
-			const struct iovec *iov, uint32_t iovcnt, spdk_fsdev_op_write_cpl_cb clb, void *ctx);
+			const struct iovec *iov, uint32_t iovcnt, struct spdk_fsdev_ext_op_opts *opts,
+			spdk_fsdev_op_write_cpl_cb clb, void *ctx);
 
 /**
  * Get file system statistic operation completion callback

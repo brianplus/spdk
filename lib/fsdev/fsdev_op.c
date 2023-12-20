@@ -533,7 +533,7 @@ _spdk_fsdev_op_read_cb(struct spdk_fsdev_io *fsdev_io, void *cb_arg)
 int
 spdk_fsdev_op_read(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, uint64_t unique,
 		   spdk_ino_t ino, uint64_t fh, size_t size, uint64_t offs, uint32_t flags,
-		   struct iovec *iov, uint32_t iovcnt,
+		   struct iovec *iov, uint32_t iovcnt, struct spdk_fsdev_ext_op_opts *opts,
 		   spdk_fsdev_op_read_cpl_cb clb, void *ctx)
 {
 	struct spdk_fsdev_io *fsdev_io;
@@ -551,6 +551,7 @@ spdk_fsdev_op_read(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, uin
 	fsdev_io->u_in.read.flags = flags;
 	fsdev_io->u_in.read.iov = iov;
 	fsdev_io->u_in.read.iovcnt = iovcnt;
+	fsdev_io->u_in.read.opts = opts;
 
 	fsdev_io_submit(fsdev_io);
 	return 0;
@@ -569,7 +570,8 @@ _spdk_fsdev_op_write_cb(struct spdk_fsdev_io *fsdev_io, void *cb_arg)
 int
 spdk_fsdev_op_write(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, uint64_t unique,
 		    spdk_ino_t ino, uint64_t fh, size_t size, uint64_t offs, uint64_t flags,
-		    const struct iovec *iov, uint32_t iovcnt, spdk_fsdev_op_write_cpl_cb clb, void *ctx)
+		    const struct iovec *iov, uint32_t iovcnt, struct spdk_fsdev_ext_op_opts *opts,
+		    spdk_fsdev_op_write_cpl_cb clb, void *ctx)
 {
 	struct spdk_fsdev_io *fsdev_io;
 
@@ -586,6 +588,7 @@ spdk_fsdev_op_write(struct spdk_fsdev_desc *desc, struct spdk_io_channel *ch, ui
 	fsdev_io->u_in.write.flags = flags;
 	fsdev_io->u_in.write.iov = iov;
 	fsdev_io->u_in.write.iovcnt = iovcnt;
+	fsdev_io->u_in.write.opts = opts;
 
 	fsdev_io_submit(fsdev_io);
 	return 0;

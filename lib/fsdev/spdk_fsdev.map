@@ -18,6 +18,7 @@
 	spdk_fsdev_get_opts;
 	spdk_fsdev_set_instance_opts;
 	spdk_fsdev_get_instance_opts;
+	spdk_fsdev_get_memory_domains;
 	spdk_fsdev_op_init;
 	spdk_fsdev_op_cleanup;
 	spdk_fsdev_op_lookup;

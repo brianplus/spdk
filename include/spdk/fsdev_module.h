@@ -110,6 +110,12 @@ struct spdk_fsdev_fn_table {
 	 * constructor method. No other data should be written.
 	 */
 	void (*write_config_json)(struct spdk_fsdev *fsdev, struct spdk_json_write_ctx *w);
+
+	/** Get memory domains used by fsdev. Optional - may be NULL.
+	 * Vfsdev module implementation should call \ref spdk_fsdev_get_memory_domains for underlying fsdev.
+	 * Vfsdev module must inspect types of memory domains returned by base fsdev and report only those
+	 * memory domains that it can work with. */
+	int (*get_memory_domains)(void *ctx, struct spdk_memory_domain **domains, int array_size);
 };
 
 /**
@@ -298,6 +304,7 @@ struct spdk_fsdev_io {
 			uint32_t flags;
 			struct iovec *iov;
 			uint32_t iovcnt;
+			struct spdk_fsdev_ext_op_opts *opts;
 		} read;
 		struct {
 			spdk_ino_t ino;
@@ -307,6 +314,7 @@ struct spdk_fsdev_io {
 			uint64_t flags;
 			const struct iovec *iov;
 			uint32_t iovcnt;
+			struct spdk_fsdev_ext_op_opts *opts;
 		} write;
 		struct {
 			spdk_ino_t ino;

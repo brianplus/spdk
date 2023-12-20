@@ -1263,6 +1263,9 @@ lo_read(struct spdk_io_channel *_ch, struct spdk_fsdev_io *fsdev_io)
 	struct iovec *outvec = fsdev_io->u_in.read.iov;
 	uint32_t outcnt =  fsdev_io->u_in.read.iovcnt;
 
+	/* we don't suport the memory domains at the moment */
+	assert(!fsdev_io->u_in.read.opts || !fsdev_io->u_in.read.opts->memory_domain);
+
 	UNUSED(ino);
 	UNUSED(flags);
 
@@ -1316,6 +1319,9 @@ lo_write(struct spdk_io_channel *_ch, struct spdk_fsdev_io *fsdev_io)
 	uint32_t flags = fsdev_io->u_in.write.flags;
 	const struct iovec *invec = fsdev_io->u_in.write.iov;
 	uint32_t incnt =  fsdev_io->u_in.write.iovcnt;
+
+	 /* we don't suport the memory domains at the moment */
+	assert(!fsdev_io->u_in.write.opts || !fsdev_io->u_in.write.opts->memory_domain);
 
 	UNUSED(ino);
 	UNUSED(flags);
