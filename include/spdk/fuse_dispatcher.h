@@ -13,6 +13,15 @@
 
 struct spdk_fuse_dispatcher;
 
+enum spdk_fuse_arch {
+	SPDK_FSDEV_ARCH_NATIVE,
+	SPDK_FSDEV_ARCH_X86,
+	SPDK_FSDEV_ARCH_X86_64,
+	SPDK_FSDEV_ARCH_ARM,
+	SPDK_FSDEV_ARCH_ARM64,
+	_SPDK_FSDEV_ARCH_LAST,
+};
+
 typedef void (*spdk_fuse_dispatcher_submit_cpl_cb)(void *cb_arg, uint32_t error);
 
 /**
@@ -23,6 +32,18 @@ typedef void (*spdk_fuse_dispatcher_submit_cpl_cb)(void *cb_arg, uint32_t error)
  * \return pointer to dispatcher object on success, otherwise - NULL.
  */
 struct spdk_fuse_dispatcher *spdk_fuse_dispatcher_create(struct spdk_fsdev_desc *desc);
+
+/**
+ * Set a FUSE request source's HW architecture.
+ *
+ * Unless this function is called explicitly, the arch set to SPDK_FSDEV_ARCH_NATIVE.
+ *
+ * \param disp FUSE fsdev dispatcher object.
+ * \param fuse_arch FUSE request source's HW architecture
+ *
+ * \return 0 on success or -EINVAL if the architecture is not supported
+ */
+int spdk_fuse_dispatcher_set_arch(struct spdk_fuse_dispatcher *disp, enum spdk_fuse_arch fuse_arch);
 
 /**
  * Submit FUSE request

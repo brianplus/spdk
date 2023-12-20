@@ -49,6 +49,91 @@
 #define ST_MTIM_NSEC_SET(stbuf, val) do { } while (0)
 #endif
 
+/*************************************************************************************************
+ * NOTE: It appeared that the open flags have different values on the different HW architechtures.
+ *
+ * This code handles the open flags translation in case they're originated from a platform with
+ * a different HW architecture.
+ *
+ * Currently supported:
+ *  - X86
+ *  - X86_64
+ *  - ARM
+ *  - ARM64
+ *************************************************************************************************/
+/* See https://lxr.missinglinkelectronics.com/linux/arch/arm/include/uapi/asm/fcntl.h */
+#define ARM_O_DIRECTORY      040000 /* must be a directory */
+#define ARM_O_NOFOLLOW      0100000 /* don't follow links */
+#define ARM_O_DIRECT        0200000 /* direct disk access hint - currently ignored */
+#define ARM_O_LARGEFILE     0400000
+
+/* See https://lxr.missinglinkelectronics.com/linux/include/uapi/asm-generic/fcntl.h */
+#define X86_O_DIRECT        00040000        /* direct disk access hint */
+#define X86_O_LARGEFILE     00100000
+#define X86_O_DIRECTORY     00200000        /* must be a directory */
+#define X86_O_NOFOLLOW      00400000        /* don't follow links */
+
+static inline bool
+fsdev_d2h_open_flags(enum spdk_fuse_arch fuse_arch, uint32_t flags, uint32_t *translated_flags)
+{
+	bool res = true;
+
+#define REPLACE_FLAG(arch_flag, native_flag) \
+	do { \
+		if (flags & (arch_flag)) { \
+			*translated_flags |= (native_flag); \
+		} \
+	} while(0)
+
+	switch (fuse_arch) {
+	case SPDK_FSDEV_ARCH_NATIVE:
+#if defined(__x86_64__) || defined(__i386__)
+	case SPDK_FSDEV_ARCH_X86:
+	case SPDK_FSDEV_ARCH_X86_64:
+#endif
+#if defined(__aarch64__) || defined(__arm__)
+	case SPDK_FSDEV_ARCH_ARM:
+	case SPDK_FSDEV_ARCH_ARM64:
+#endif
+		/* No translation required */
+		*translated_flags = flags;
+		break;
+#if defined(__x86_64__) || defined(__i386__)
+	case SPDK_FSDEV_ARCH_ARM:
+	case SPDK_FSDEV_ARCH_ARM64:
+		*translated_flags = 0;
+		/* Relace the ARM-specific flags with the native ones */
+		REPLACE_FLAG(ARM_O_DIRECTORY, O_DIRECTORY);
+		REPLACE_FLAG(ARM_O_NOFOLLOW, O_NOFOLLOW);
+		REPLACE_FLAG(ARM_O_DIRECT, O_DIRECT);
+		REPLACE_FLAG(ARM_O_LARGEFILE, O_LARGEFILE);
+		break;
+#endif
+#if defined(__aarch64__) || defined(__arm__)
+	case SPDK_FSDEV_ARCH_X86:
+	case SPDK_FSDEV_ARCH_X86_64:
+		*translated_flags = 0;
+		/* Relace the X86-specific flags with the native ones */
+		REPLACE_FLAG(X86_O_DIRECTORY, O_DIRECTORY);
+		REPLACE_FLAG(X86_O_NOFOLLOW, O_NOFOLLOW);
+		REPLACE_FLAG(X86_O_DIRECT, O_DIRECT);
+		REPLACE_FLAG(X86_O_LARGEFILE, O_LARGEFILE);
+		break;
+#endif
+	default:
+		SPDK_ERRLOG("Unsupported FUSE arch: %d\n", fuse_arch);
+		assert(0);
+		*translated_flags = 0;
+		res = false;
+		break;
+	}
+
+#undef REPLACE_FLAG
+
+	return res;
+}
+/**********************************************************************************************/
+
 struct spdk_fuse_mgr {
 	struct spdk_mempool *fuse_io_pool;
 	uint32_t ref_cnt;
@@ -120,6 +205,11 @@ struct spdk_fuse_dispatcher {
 	 * Minor version of the protocol (read-only)
 	 */
 	unsigned proto_minor;
+
+	/**
+	 * FUSE request source's architecture
+	 */
+	enum spdk_fuse_arch fuse_arch;
 };
 
 static inline uint16_t
@@ -1166,8 +1256,10 @@ do_open_cpl_clb(void *ctx, struct spdk_io_channel *ch, int status, uint64_t fh)
 static void
 do_open(struct fuse_io *fuse_io)
 {
+	struct spdk_fuse_dispatcher *disp = fuse_io->disp;
 	int err;
 	struct fuse_open_in *arg;
+	uint32_t flags;
 
 	arg = _fsdev_io_in_arg_get_buf(fuse_io, sizeof(*arg));
 	if (!arg) {
@@ -1175,8 +1267,13 @@ do_open(struct fuse_io *fuse_io)
 		fuse_dispatcher_io_complete_err(fuse_io, EINVAL);
 	}
 
+	if (!fsdev_d2h_open_flags(disp->fuse_arch, fsdev_io_d2h_u32(fuse_io, arg->flags), &flags)) {
+		SPDK_ERRLOG("Cannot translate flags\n");
+		fuse_dispatcher_io_complete_err(fuse_io, EINVAL);
+	}
+
 	err = spdk_fsdev_op_open(fuse_io_desc(fuse_io), fuse_io->ch, fuse_io->hdr.unique,
-				 fuse_io->hdr.nodeid, fsdev_io_d2h_u32(fuse_io, arg->flags),
+				 fuse_io->hdr.nodeid, flags,
 				 do_open_cpl_clb, fuse_io);
 	if (err) {
 		fuse_dispatcher_io_complete_err(fuse_io, err);
@@ -2392,8 +2489,25 @@ spdk_fuse_dispatcher_create(struct spdk_fsdev_desc *desc)
 	pthread_mutex_unlock(&g_fuse_mgr.lock);
 
 	disp->desc = desc;
+	disp->fuse_arch = SPDK_FSDEV_ARCH_NATIVE;
 
 	return disp;
+}
+
+int
+spdk_fuse_dispatcher_set_arch(struct spdk_fuse_dispatcher *disp, enum spdk_fuse_arch fuse_arch)
+{
+	switch (fuse_arch) {
+	case SPDK_FSDEV_ARCH_NATIVE:
+	case SPDK_FSDEV_ARCH_X86:
+	case SPDK_FSDEV_ARCH_X86_64:
+	case SPDK_FSDEV_ARCH_ARM:
+	case SPDK_FSDEV_ARCH_ARM64:
+		disp->fuse_arch = fuse_arch;
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 int
