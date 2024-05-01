@@ -962,6 +962,8 @@ lo_open(struct spdk_io_channel *ch, struct spdk_fsdev_io *fsdev_io)
 		flags &= ~O_APPEND;
 	}
 
+	flags &= ~O_DIRECT;
+
 	sprintf(buf, "%i", lo_fd(vfsdev, ino));
 	fd = openat(vfsdev->proc_self_fd, buf, flags & ~O_NOFOLLOW);
 	if (fd == -1) {
