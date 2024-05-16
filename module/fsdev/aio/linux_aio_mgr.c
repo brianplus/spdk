@@ -58,7 +58,7 @@ spdk_aio_mgr_io_cpl_cb(io_context_t ctx, struct iocb *iocb, long res, long res2)
 	struct spdk_aio_mgr_io *aio = SPDK_CONTAINEROF(iocb, struct spdk_aio_mgr_io, io);
 
 	aio->clb(aio->ctx, res, -res2);
-
+	TAILQ_REMOVE(&aio->mgr->in_flight, aio, link);
 	aio_mgr_put_aio(aio->mgr, aio);
 }
 
